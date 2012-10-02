@@ -1,4 +1,4 @@
-# riemann-cassandra : A tool for emitting Cassandra metrics to Riemann
+# riemann-cassandra : tool for emitting Cassandra metrics to Riemann
 
 ## Background
 
@@ -29,10 +29,12 @@ You should run one of these per Cassandra node.
     * cassandra.pending_compactions
     * cassandra.total_sstable_mb
 
+
   * Per ThreadPool 
     * cassandra.tp.active
     * cassandra.tp.blocked
     * cassandra.tp.pending
+
 
   * Per Keyspace/ColumnFamily
     * cassandra.db.keys
@@ -48,5 +50,5 @@ You should run one of these per Cassandra node.
     * cassandra.db.write_latency
 
 [Cassandra]:http://cassandra.apache.org
-[Riemann]:http://riemann.apache.org
-[Graphite]:http://graphite.wikidot.org
+[Riemann]:http://aphyr.github.com/riemann
+[Graphite]:http://graphite.wikidot.com
