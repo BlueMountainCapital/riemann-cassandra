@@ -28,14 +28,10 @@ You should run one of these per Cassandra node.
     * cassandra.recent_timeouts
     * cassandra.pending_compactions
     * cassandra.total_sstable_mb
-
-
   * Per ThreadPool 
     * cassandra.tp.active
     * cassandra.tp.blocked
     * cassandra.tp.pending
-
-
   * Per Keyspace/ColumnFamily
     * cassandra.db.keys
     * cassandra.db.mean_row_size
