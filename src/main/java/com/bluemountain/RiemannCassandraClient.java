@@ -179,6 +179,7 @@ public class RiemannCassandraClient {
 	    riemannClient.sendEvents(events.toArray(new Event[] {}));
 	} catch (Throwable t) {
 	    // Try again later
+            jmxClient = null;
 	    t.printStackTrace();
 	}
     }
