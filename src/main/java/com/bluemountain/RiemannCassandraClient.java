@@ -1,8 +1,15 @@
 package com.bluemountain;
 
 import java.io.PrintWriter;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -60,7 +67,7 @@ public class RiemannCassandraClient {
 	this.jmxUsername = jmxUsername;
 	this.jmxPassword = jmxPassword;
 
-	protoEvent = Event.newBuilder().setHost(cassandraHost).addTags("cassandra").setState("ok").setTtl(5).build();
+	protoEvent = Event.newBuilder().setHost(pickBestHostname(cassandraHost)).addTags("cassandra").setState("ok").setTtl(5).build();
 
 	riemannClient = new RiemannClient(new InetSocketAddress(riemannHost, riemannPort));
 
@@ -68,6 +75,34 @@ public class RiemannCassandraClient {
 	    System.err.println(String.format("Unable to connect to Cassandra JMX (%s:%d) will continue to try silently....", cassandraHost, cassandraJmxPort));
     }
 
+    private String pickBestHostname(String cassandraHost)
+    {
+	try {	    
+	    InetAddress cassandraAddr = InetAddress.getByName(cassandraHost);
+
+	    if (!cassandraAddr.isLoopbackAddress()) 
+		return cassandraAddr.getCanonicalHostName();
+	    
+	    //Pick first non local ip with a hostname
+	    Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
+	    for (NetworkInterface netint : Collections.list(nets))
+	    {
+		Enumeration<InetAddress> inetAddresses = netint.getInetAddresses();
+	        for (InetAddress inetAddress : Collections.list(inetAddresses)) {
+	            if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address)
+	        	return inetAddress.getCanonicalHostName();
+	        }
+	    }
+	    
+	} catch (UnknownHostException e) {
+	    throw new RuntimeException("Unknown host", e);
+	} catch (SocketException e) {
+	    throw new RuntimeException("Error getting network info", e);
+	}
+	
+	return cassandraHost;
+    }
+    
     private synchronized boolean reconnectJMX() {
 
 	try {
