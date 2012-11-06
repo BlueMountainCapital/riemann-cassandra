@@ -178,6 +178,7 @@ public class RiemannCassandraClient {
 	    String name = "cassandra.tp." + p.getKey();
 	    JMXEnabledThreadPoolExecutorMBean v = p.getValue();
 
+	    add(events, name + ".completed", v.getCompletedTasks());
 	    add(events, name + ".active", v.getActiveCount());
 	    add(events, name + ".pending", v.getPendingTasks());
 	    add(events, name + ".blocked", v.getCurrentlyBlockedTasks());
