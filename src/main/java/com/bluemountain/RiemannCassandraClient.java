@@ -1,9 +1,10 @@
 package com.bluemountain;
 
-import com.aphyr.riemann.Proto;
-import com.aphyr.riemann.Proto.Event;
-import com.aphyr.riemann.Proto.Event.Builder;
-import com.aphyr.riemann.client.RiemannClient;
+//import com.aphyr.riemann.Proto;
+//import com.aphyr.riemann.Proto.Event;
+//import com.aphyr.riemann.Proto.Event.Builder;
+//import com.aphyr.riemann.client.RiemannClient;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.management.MemoryUsage;
@@ -15,6 +16,9 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.*;
 import java.util.Map.Entry;
+
+import io.riemann.riemann.Proto;
+import io.riemann.riemann.client.RiemannClient;
 import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutorMBean;
 import org.apache.cassandra.db.ColumnFamilyStoreMBean;
 import org.apache.cassandra.db.compaction.CompactionManagerMBean;
@@ -59,8 +63,7 @@ public class RiemannCassandraClient
     final String jmxPassword;
     final Proto.Event protoEvent;
 
-    public RiemannCassandraClient(String riemannHost, Integer riemannPort, String cassandraHost, Integer cassandraJmxPort, String jmxUsername, String jmxPassword)
-    {
+    public RiemannCassandraClient(String riemannHost, Integer riemannPort, String cassandraHost, Integer cassandraJmxPort, String jmxUsername, String jmxPassword) throws IOException {
         this.cassandraHost = cassandraHost;
         this.cassandraJmxPort = cassandraJmxPort;
         this.jmxUsername = jmxUsername;
@@ -68,10 +71,13 @@ public class RiemannCassandraClient
 
         this.protoEvent = Proto.Event.newBuilder().setHost(pickBestHostname(cassandraHost)).addTags("cassandra").setState("ok").setTtl(5.0F).build();
 
-        this.riemannClient = new RiemannClient(new InetSocketAddress(riemannHost, riemannPort.intValue()));
+        //this.riemannClient = new RiemannClient(new InetSocketAddress(riemannHost, riemannPort.intValue()));
+        this.riemannClient = RiemannClient.tcp(new InetSocketAddress(riemannHost, riemannPort.intValue()));
         if (!reconnectJMX()) {
             System.err.println(String.format("Unable to connect to Cassandra JMX (%s:%d) will continue to try silently....", new Object[] { cassandraHost, cassandraJmxPort }));
         }
+        //make sure coonect to riemann server
+        riemannClient.connect();
     }
 
     private String pickBestHostname(String cassandraHost)
@@ -199,12 +205,12 @@ public class RiemannCassandraClient
     }
 
     private void emitDroppedMessagesMetrics() {
-        List<Event> events = new ArrayList<Event>();
+        List<Proto.Event> events = new ArrayList<Proto.Event>();
         Map<String, Integer> dropped = jmxClient.getDroppedMessages();
         for (Map.Entry<String, Integer> me: dropped.entrySet()) {
             add(events, "org.apache.cassandra.metrics.dropped."+me.getKey(), (float) me.getValue());
         }
-        riemannClient.sendEvents(events.toArray(new Event[] {}));
+        riemannClient.sendEvents(events.toArray(new Proto.Event[] {}));
         events.clear();
     }
 
@@ -254,8 +260,7 @@ public class RiemannCassandraClient
         writer.close();
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) throws IOException {
         BasicParser parser = new BasicParser();
         CommandLine cl = null;
         try
@@ -267,6 +272,7 @@ public class RiemannCassandraClient
             printUsage();
             System.exit(1);
         }
+        System.out.println("success start riemann-cassandra-client............@" + new Date());
         // Extracted options
         String cassandraHost = cl.getOptionValue("cassandra_host", "localhost");
         String riemannHost = cl.getOptionValue("riemann_host", "localhost");
@@ -276,15 +282,21 @@ public class RiemannCassandraClient
         Integer riemannPort = Integer.valueOf(cl.getOptionValue("riemann_port", "5555"));
         Integer intervalSeconds = Integer.valueOf(cl.getOptionValue("interval_seconds", "5"));
 
-        RiemannCassandraClient cli = new RiemannCassandraClient(riemannHost, riemannPort, cassandraHost, jmxPort, jmxUsername, jmxPassword);
-        for (;;)
-        {
-            cli.emitMetrics();
-            try
-            {
-                Thread.sleep(intervalSeconds.intValue() * 1000);
+        Runtime.getRuntime().addShutdownHook(new Thread(){
+            @Override
+            public void run() {
+                System.out.println("closed riemann-cassandra-client@" + new Date());
             }
-            catch (InterruptedException e) {}
+        });
+
+        RiemannCassandraClient cli = new RiemannCassandraClient(riemannHost, riemannPort, cassandraHost, jmxPort, jmxUsername, jmxPassword);
+        for (;;) {
+            cli.emitMetrics();
+            try {
+                Thread.sleep(intervalSeconds.intValue() * 1000);
+            } catch (InterruptedException e) {
+                System.out.println("interrupt...");
+            }
         }
     }
 }
